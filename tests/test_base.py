@@ -1,5 +1,5 @@
-from project_name.base import NAME
+from knir_quantum_gan.base import NAME
 
 
 def test_base():
-    assert NAME == "project_name"
+    assert NAME == "knir_quantum_gan"
