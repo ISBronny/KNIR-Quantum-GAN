@@ -130,3 +130,14 @@ dmypy.json
 
 # templates
 .github/templates/*
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/.gitignore
+/.idea/KNIR-Quantum-GAN.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/vcs.xml
+
+
+
+/knir_quantum_gan/wandb/*
+/knir_quantum_gan/quantum_gans/*
