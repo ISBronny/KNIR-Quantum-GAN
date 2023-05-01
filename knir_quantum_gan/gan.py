@@ -21,36 +21,39 @@ from sklearn import datasets
 class Discriminator(nn.Module):
     def __init__(self, image_size=28):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.Linear(64, 64),
-            nn.ReLU(),
+        if image_size == 8:
+            self.model = nn.Sequential(
+                nn.Linear(64, 64),
+                nn.ReLU(),
 
-            nn.Linear(64, 16),
-            nn.ReLU(),
+                nn.Linear(64, 16),
+                nn.ReLU(),
 
-            nn.Linear(16, 1),
-            nn.Sigmoid(),
+                nn.Linear(16, 1),
+                nn.Sigmoid())
 
+        if image_size == 16:
+            self.model = nn.Sequential(
+                nn.Linear(256, 400),
+                nn.ReLU(),
 
-            # nn.Linear(256, 400),
-            # nn.ReLU(),
-            #
-            # nn.Linear(400, 10),
-            # nn.ReLU(),
-            #
-            # nn.Linear(10, 1),
-            # nn.Sigmoid(),
+                nn.Linear(400, 10),
+                nn.ReLU(),
 
+                nn.Linear(10, 1),
+                nn.Sigmoid())
 
-            # nn.Linear(784, 800),
-            # nn.ReLU(),
-            #
-            # nn.Linear(800, 10),
-            # nn.ReLU(),
-            #
-            # nn.Linear(10, 1),
-            # nn.Sigmoid(),
-        )
+        if image_size == 28:
+            self.model = nn.Sequential(
+                nn.Linear(784, 800),
+                nn.ReLU(),
+
+                nn.Linear(800, 10),
+                nn.ReLU(),
+
+                nn.Linear(10, 1),
+                nn.Sigmoid())
+
         self.image_size = image_size
 
     def forward(self, x):
@@ -106,49 +109,6 @@ class PatchQuantumGenerator(nn.Module):
         return images
 
 
-class DigitsDataset(Dataset):
-    """Pytorch dataloader for the Optical Recognition of Handwritten Digits Data Set"""
-
-    def __init__(self, csv_file, image_size=28, labels=None, transform=None):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        if labels is None:
-            labels = [0]
-        self.image_size = image_size
-        self.csv_file = csv_file
-        self.transform = transform
-        self.df = self.filter_by_label(labels)
-
-    def filter_by_label(self, label):
-        # Use pandas to return a dataframe of only zeros
-        df = pd.read_csv(self.csv_file)
-        df = df.loc[df['label'].isin(label)]
-        return df
-
-    def __len__(self):
-        return len(self.df)
-
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        image = self.df.iloc[idx, :-1] / 16
-
-        image = np.array(image)
-        image = image.astype(np.float32).reshape(28, 28)
-
-        if self.transform:
-            image = self.transform(image)
-
-        # Return image and label
-        return image, 0
-
-
 def start_train():
     wandb.login(relogin=True, key=os.getenv("WANDB_API_KEY", "606da00db4db699efabdef0dab836bbacb81e261"))
 
@@ -157,7 +117,7 @@ def start_train():
     np.random.seed(seed)
     random.seed(seed)
 
-    image_size = 8
+    image_size = 28
 
     use_gpu = False
 
@@ -169,10 +129,10 @@ def start_train():
         print('Using CPU')
 
     # Quantum variables
-    n_qubits = 6  # Total number of qubits / N
-    n_a_qubits = 2  # Number of ancillary qubits / N_A
+    n_qubits = 5  # Total number of qubits / N
+    n_a_qubits = 1  # Number of ancillary qubits / N_A
     q_depth = 5  # Depth of the parameterised quantum circuit / D
-    n_generators = 4  # Number of subgenerators for the patch method / N_G
+    n_generators = 49  # Number of subgenerators for the patch method / N_G
     dev = qml.device("lightning.qubit", wires=n_qubits)
 
     def partial_measure(noise, weights):
@@ -207,7 +167,7 @@ def start_train():
 
     batch_size = 1
     show_images_count = 16
-    labels = [0]
+    labels = [7]
 
     lrG = 0.3  # Learning rate for the generator
     lrD = 0.01
