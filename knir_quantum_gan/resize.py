@@ -56,22 +56,40 @@ class DigitsDataset(Dataset):
         image = image.astype(np.float32).reshape(28, 28)
 
         if self.transform:
-                image = self.transform(image)
+            image = self.transform(image)
 
         # Return image and label
         return image, 0
 
 
-image_size=16
+device = torch.device("cpu")
 
+image_size = 5
+size = 5
+n_qubits = 7
+
+labels = [2, 5]
+
+
+def get_label_vector(batch_size, batch_labels):
+    vector = torch.full((batch_size, len(labels)), 0.0, dtype=torch.float, device=device)
+    for n, label in enumerate(batch_labels):
+        vector[n, labels.index(label)] = 1.0
+    return vector
+
+
+noise = torch.rand(size, n_qubits, device=device) * math.pi / 2
+noise_and_label = torch.cat((noise, get_label_vector(size, [2, 5, 5, 2, 2])), 1)
 
 images = []
 
 for inter in [torchvision.transforms.InterpolationMode.NEAREST, torchvision.transforms.InterpolationMode.NEAREST_EXACT,
               torchvision.transforms.InterpolationMode.BILINEAR, torchvision.transforms.InterpolationMode.BICUBIC]:
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Resize(image_size, inter), transforms.Normalize((0.5,), (0.5,))])
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Resize(image_size, inter), transforms.Normalize((0.5,), (0.5,))])
 
-    train_set = DigitsDataset(csv_file="./quantum_gans/mnist_test.csv", image_size=image_size, transform=transform, labels=[0,1,2,3,4,5,6,7,8,9], inter=inter)
+    train_set = DigitsDataset(csv_file="./quantum_gans/mnist_test.csv", image_size=image_size, transform=transform,
+                              labels=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], inter=inter)
     for i in range(16):
         ax = plt.subplot(4, 4, i + 1)
         im = train_set[i][0].resize(image_size, image_size)
