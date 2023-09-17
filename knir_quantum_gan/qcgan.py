@@ -25,12 +25,12 @@ class Discriminator(nn.Module):
         if image_size == 8:
             self.model = nn.Sequential(
                 nn.Linear(64 + labels_count, 64),
-                nn.LeakyReLU(0.02, inplace=True),
-                # nn.Dropout(0.3),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Dropout(0.3),
 
                 nn.Linear(64, 16),
-                nn.LeakyReLU(0.02, inplace=True),
-                # nn.Dropout(0.3),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Dropout(0.3),
 
                 nn.Linear(16, 1),
                 nn.Sigmoid())
@@ -51,12 +51,10 @@ class Discriminator(nn.Module):
         if image_size == 28:
             self.model = nn.Sequential(
                 nn.Linear(784 + labels_count, 800),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(0.3),
+                nn.ReLU(),
 
                 nn.Linear(800, 10),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(0.3),
+                nn.ReLU(),
 
                 nn.Linear(10, 1),
                 nn.Sigmoid())
@@ -179,28 +177,26 @@ def start_train():
 
     @qml.qnode(dev, interface="torch", diff_method="parameter-shift")
     def quantum_circuit(noise, weights):
+
+
         weights = weights.reshape(q_depth, n_qubits)
 
-        # Initialise latent vectors
-        for i in range(n_qubits):
+        for i in range(n_qubits - len(labels)):
             qml.RY(noise[i], wires=i)
 
+        for i in range(len(labels)):
+            idx = n_qubits - len(labels) + i
+            qml.RY(noise[idx], wires=idx)
+            qml.RZ(noise[idx], wires=idx)
 
-        # for i in range(n_qubits - len(labels)):
-        #     qml.RY(noise[i], wires=i)
-        #
-        # for i in range(len(labels)):
-        #     idx = n_qubits - len(labels) + i
-        #     qml.RY(noise[idx], wires=idx)
-        #     qml.RZ(noise[idx], wires=idx)
-        #
-        # # qml.IsingYY()
-        #
-        # for i in range(len(labels) - 1):
-        #     idx = n_qubits - len(labels) + i
-        #     qml.CZ(wires=[idx, idx+1])
+        # qml.IsingYY()
 
-    # Repeated layer
+        for i in range(len(labels) - 1):
+            idx = n_qubits - len(labels) + i
+            qml.CZ(wires=[idx, idx+1])
+
+
+        # Repeated layer
         for i in range(q_depth):
             # Parameterised layer
             for y in range(n_qubits):
@@ -208,7 +204,7 @@ def start_train():
 
             # Control Z gates
             for y in range(n_qubits - n_a_qubits):
-                qml.CZ(wires=[y, y + 1])
+                qml.CZ(wires=[y, y + n_a_qubits])
 
         return qml.probs(wires=list(range(n_qubits)))
 
@@ -265,6 +261,8 @@ def start_train():
     fixed_labels_and_noise = torch.cat((fixed_noise, get_label_vector(show_images_count, fixed_fake_labels)), 1) * math.pi / 2
     # fixed_labels_and_noise = torch.rand(show_images_count, n_qubits, device=device) * math.pi / 2
 
+
+
     METRICS_GEN_LOSS = "Generator Loss"
     wandb.define_metric(METRICS_GEN_LOSS)
 
@@ -283,9 +281,7 @@ def start_train():
     counter = 0
 
     for epoch in range(num_epochs):
-        epoch_counter = 0
         for n, (real_samples, real_labels) in enumerate(train_loader):
-
 
             size = min(batch_size, real_samples.shape[0])
 
@@ -345,10 +341,6 @@ def start_train():
             })
 
             counter += 1
-            epoch_counter += 1
-
-            if epoch_counter > 100:
-                break
 
             if counter % 10 == 0:
                 # Show generated images

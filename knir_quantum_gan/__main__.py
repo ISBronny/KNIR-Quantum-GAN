@@ -1,8 +1,13 @@
 """Entry point for knir_quantum_gan."""
-from knir_quantum_gan.gan import start_train
+import os
+
+import wandb
+
+from gan import start_train
 from dotenv import load_dotenv
 
 
 if __name__ == "__main__":
+    wandb.login(relogin=True, key=os.getenv("WANDB_API_KEY", "606da00db4db699efabdef0dab836bbacb81e261"))
     load_dotenv()
-    start_train()
+    wandb.agent('uq4q9wbm', function=start_train, count=20, project='KNIR-Quantum-GAN')
