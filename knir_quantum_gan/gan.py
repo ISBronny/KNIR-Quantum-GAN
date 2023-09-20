@@ -94,7 +94,7 @@ class PatchQuantumGenerator(nn.Module):
 
         self.q_params = nn.ParameterList(
             [
-                nn.Parameter(q_delta * torch.rand(q_depth * n_qubits), requires_grad=True)
+                nn.Parameter(q_delta * torch.rand((q_depth + 1) * n_qubits), requires_grad=True)
                 for _ in range(n_generators)
             ]
         )
@@ -107,7 +107,7 @@ class PatchQuantumGenerator(nn.Module):
 
     def forward(self, x):
         # Size of each sub-generator output
-        patch_size = 2 ** (self.n_qubits - self.n_a_qubits)
+        patch_size = 56#* (self.n_qubits - self.n_a_qubits)
 
         # Create a Tensor to 'catch' a batch of images from the for loop. x.size(0) is the batch size.
         images = torch.Tensor(x.size(0), 0).to(self.device)
@@ -133,9 +133,7 @@ def start_train():
     wandb.init(project="KNIR-Quantum-GAN")
     config = wandb.config
 
-    circuit_showed = False
-
-    seed = 141
+    seed = 117
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
@@ -163,27 +161,30 @@ def start_train():
 
 
     def partial_measure(noise, weights):
-        # Non-linear Transformpt
-        # fig, ax =
-        # if circuit_showed is False:
+        # if seed is False:
+        #     fig, ax = qml.draw_mpl(quantum_circuit)(noise, weights)
         #     wandb.log({"Circuit": [qml.dr(quantum_circuit)(noise, weights)]})
-        #     circuit_showed = True
+        #     seed = True
 
         probs = quantum_circuit(noise, weights)
-        probsgiven0 = probs[: (2 ** (n_qubits - n_a_qubits))]
+        probsgiven0 = probs[: image_size * 2]
         probsgiven0 /= torch.sum(probs)
 
         # Post-Processing
         probsgiven = probsgiven0 / torch.max(probsgiven0)
-        return probsgiven
+        return [round(p) for p in probsgiven]
 
     @qml.qnode(dev, interface="torch", diff_method="parameter-shift")
     def quantum_circuit(noise, weights):
-        weights = weights.reshape(q_depth, n_qubits)
+        weights = weights.reshape(1 + q_depth, n_qubits)
 
         # Initialise latent vectors
         for i in range(n_qubits):
             qml.RY(noise[i], wires=i)
+
+
+        for i in range(n_qubits - 1):
+            qml.IsingYY(weights[0][i], wires=[i, i+1])
 
 
         # for i in range(n_qubits - len(labels)):
@@ -200,15 +201,22 @@ def start_train():
         #     idx = n_qubits - len(labels) + i
         #     qml.CZ(wires=[idx, idx+1])
 
-    # Repeated layer
-        for i in range(q_depth):
-            # Parameterised layer
-            for y in range(n_qubits):
-                qml.RY(weights[i][y], wires=y)
 
-            # Control Z gates
-            for y in range(n_qubits - n_a_qubits):
-                qml.CZ(wires=[y, y + 1])
+    # Repeated layer
+    #     for i in range(q_depth):
+    #         # Parameterised layer
+    #         for y in range(n_qubits):
+    #             qml.RY(weights[i][y], wires=y)
+    #
+    #         # Control Z gates
+    #         for y in range(n_qubits - n_a_qubits):
+    #             qml.CZ(wires=[y, y + 1])
+
+        for layer in range(q_depth):
+            for i in range(n_qubits - 1):
+                qml.CRY(weights[layer + 1][i], wires=[i, i+1])
+
+            qml.CRY(weights[layer][n_qubits-1], wires=[n_qubits-1, 0])
 
         return qml.probs(wires=list(range(n_qubits)))
 
@@ -221,10 +229,10 @@ def start_train():
     loss_function = nn.BCELoss()
 
     def get_label_vector(batch_size, batch_labels):
-        vector = torch.full((batch_size, len(labels)), 0.0001, dtype=torch.float)
+        vector = torch.full((batch_size, len(labels)), random.uniform(0.0001, 0.15), dtype=torch.float)
         for n, label in enumerate(batch_labels):
             # может быть 1?
-            vector[n, labels.index(label)] = 0.99999
+            vector[n, labels.index(label)] = random.uniform(0.85, 0.9999)
         return vector
 
     transform = transforms.Compose(
@@ -262,7 +270,7 @@ def start_train():
 
     fixed_noise = torch.rand(show_images_count, n_qubits - n_label_qubits, device=device)
     fixed_fake_labels = [random.choice(labels) for _ in range(show_images_count)]
-    fixed_labels_and_noise = torch.cat((fixed_noise, get_label_vector(show_images_count, fixed_fake_labels)), 1) * math.pi / 2
+    fixed_labels_and_noise = torch.cat((get_label_vector(show_images_count, fixed_fake_labels), fixed_noise), 1) * math.pi / 2
     # fixed_labels_and_noise = torch.rand(show_images_count, n_qubits, device=device) * math.pi / 2
 
     METRICS_GEN_LOSS = "Generator Loss"
@@ -296,7 +304,7 @@ def start_train():
 
             noise = torch.rand(size, n_qubits - n_label_qubits, device=device)
             fake_labels = [random.choice(labels) for _ in range(size)]
-            labels_and_noise = torch.cat((noise, get_label_vector(size, fake_labels)), 1) * math.pi / 2
+            labels_and_noise = torch.cat((get_label_vector(size, fake_labels), noise), 1) * math.pi / 2
             generated_samples = generator(labels_and_noise)
 
             end = timer()
@@ -347,10 +355,19 @@ def start_train():
             counter += 1
             epoch_counter += 1
 
-            if epoch_counter > 100:
+            if epoch_counter > 1000:
+                generated_samples = generator(fixed_labels_and_noise).view(show_images_count, 1, image_size,
+                                                                           image_size).cpu().detach()
+
+                images = wandb.Image(
+                    generated_samples,
+                    caption=f'Epoch {epoch}. \n{fixed_fake_labels}'
+                )
+
+                wandb.log({"Epochs": images})
                 break
 
-            if counter % 10 == 0:
+            if counter % 50 == 0:
                 # Show generated images
                 generated_samples = generator(fixed_labels_and_noise).view(show_images_count, 1, image_size,
                                                                            image_size).cpu().detach()
@@ -364,12 +381,12 @@ def start_train():
 
                 wandb.log({"Generated": images})
 
-                torch.save(discriminator.state_dict(), f"./saves/{wandb.run.name}_disc_{epoch}_{n}.pt")
-                torch.save(generator.state_dict(), f"./saves/{wandb.run.name}_gen_{epoch}_{n}.pt")
+                # torch.save(discriminator.state_dict(), f"./saves/{wandb.run.name}_disc_{epoch}_{n}.pt")
+                # torch.save(generator.state_dict(), f"./saves/{wandb.run.name}_gen_{epoch}_{n}.pt")
 
     noise = torch.rand(show_images_count, n_qubits - n_label_qubits, device=device)
     fake_labels = [random.choice(labels) for _ in range(show_images_count)]
-    labels_and_noise = torch.cat((noise, get_label_vector(show_images_count, fake_labels)),1) * math.pi / 2
+    labels_and_noise = torch.cat((get_label_vector(show_images_count, fake_labels), noise),1) * math.pi / 2
 
     generated_samples = generator(labels_and_noise).view(16, 1, image_size, image_size).cpu().detach()
 
