@@ -23,7 +23,8 @@ if __name__ == '__main__':
     q_depth = 2
     n_a_qubits = 1
 
-    seed = 116
+    image_size = 8
+    seed = 117
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed = seed
@@ -32,33 +33,31 @@ if __name__ == '__main__':
 
     @qml.qnode(dev, interface="torch", diff_method="parameter-shift")
     def quantum_circuit(noise, weights):
-        weights = weights.reshape(1 + q_depth, n_qubits)
+        weights = weights.reshape(2 * q_depth, n_qubits)
 
-        # Initialise latent vectors
         for i in range(n_qubits):
-            qml.RY(noise[i], wires=i)
-
-
-        for i in range(n_qubits - 1):
-            qml.IsingYY(weights[0][i], wires=[i, i+1])
+            qml.RX(noise[i], wires=i)
 
         for layer in range(q_depth):
+            for i in range(n_qubits):
+                qml.RY(weights[2 * layer][i], wires=i)
+                qml.RZ(weights[2 * layer + 1][i], wires=i)
+
             for i in range(n_qubits - 1):
-                qml.CRY(weights[layer + 1][i], wires=[i, i+1])
+                qml.CZ((i, i+1))
+            qml.CZ((0, n_qubits - 1))
 
-            qml.CRY(weights[layer][n_qubits-1], wires=[n_qubits-1, 0])
-
-        return qml.probs(wires=list(range(0, n_qubits)))
+        return qml.probs(wires=list(range(n_qubits)))
 
     noise = torch.rand(n_qubits) * math.pi
-    weights = torch.rand((1 + q_depth) * n_qubits)
-    fig, ax = qml.draw_mpl(quantum_circuit)(noise,weights)
+    weights = torch.rand(2 * q_depth * n_qubits)
+    fig, ax = qml.draw_mpl(quantum_circuit)(noise, weights)
     fig.show()
 
     print("Result: ", quantum_circuit(noise, weights))
 
     probs = quantum_circuit(noise, weights)
-    probsgiven0 = probs[: (2 ** (n_qubits - n_a_qubits))]
+    probsgiven0 = probs[: image_size ** 2]
     probsgiven0 /= np.sum(list(probs))
 
     # Post-Processing

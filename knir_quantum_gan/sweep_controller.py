@@ -14,7 +14,7 @@ sweep_config = {
     },
     'parameters': {
         "learning_rate_discr": {
-            'values': [0.0025]
+            'values': [0.002, 0.004]
         },
         "learning_rate_gen": {
             'values': [0.3]
@@ -26,13 +26,13 @@ sweep_config = {
             'values': ['sgd']
         },
         "epochs": {
-            'values': [10]
-        },
-        "image_size": {
             'values': [8]
         },
+        "image_size": {
+            'values': [28]
+        },
         "batch_size": {
-            'values': [1]
+            'values': [2]
         },
         "labels": {
             'values': [[0]]
@@ -40,35 +40,33 @@ sweep_config = {
         "quantum_variables": {
             'values': [
                 {
-                    "n_qubits": 6,  # Total number of qubits / N
-                    "n_a_qubits": 1,  # Number of ancillary qubits / N_A
+                    "n_qubits": 10,  # Total number of qubits / N
                     "q_depth": 1,  # Depth of the parameterised quantum circuit / D
-                    "n_generators": 14
                 },
                 {
-                    "n_qubits": 6,  # Total number of qubits / N
-                    "n_a_qubits": 1,  # Number of ancillary qubits / N_A
+                    "n_qubits": 10,  # Total number of qubits / N
                     "q_depth": 2,  # Depth of the parameterised quantum circuit / D
-                    "n_generators": 14
                 },
-                # {
-                #     "n_qubits": 5,
-                #     "n_a_qubits": 1,
-                #     "q_depth": 2,
-                #     "n_generators": 4
-                # },
-                # {
-                #     "n_qubits": 5,
-                #     "n_a_qubits": 1,
-                #     "q_depth": 3,
-                #     "n_generators": 4
-                # },
-                # {
-                #     "n_qubits": 5,
-                #     "n_a_qubits": 1,
-                #     "q_depth": 4,
-                #     "n_generators": 4
-                # }
+                {
+                    "n_qubits": 10,  # Total number of qubits / N
+                    "q_depth": 3,  # Depth of the parameterised quantum circuit / D
+                },
+                {
+                    "n_qubits": 10,  # Total number of qubits / N
+                    "q_depth": 6,  # Depth of the parameterised quantum circuit / D
+                },
+                {
+                    "n_qubits": 10,  # Total number of qubits / N
+                    "q_depth": 8,  # Depth of the parameterised quantum circuit / D
+                },
+                {
+                    "n_qubits": 10,  # Total number of qubits / N
+                    "q_depth": 10,  # Depth of the parameterised quantum circuit / D
+                },
+                {
+                    "n_qubits": 10,  # Total number of qubits / N
+                    "q_depth": 12,  # Depth of the parameterised quantum circuit / D
+                },
             ]
         }
     }
